@@ -1,7 +1,7 @@
 from __init__ import CURSOR, CONN
 
-
 class Department:
+    all = {}
 
     def __init__(self, name, location, id=None):
         self.id = id
@@ -13,7 +13,6 @@ class Department:
 
     @classmethod
     def create_table(cls):
-        """ Create a new table to persist the attributes of Department instances """
         sql = """
             CREATE TABLE IF NOT EXISTS departments (
             id INTEGER PRIMARY KEY,
@@ -25,36 +24,26 @@ class Department:
 
     @classmethod
     def drop_table(cls):
-        """ Drop the table that persists Department instances """
-        sql = """
-            DROP TABLE IF EXISTS departments;
-        """
+        sql = "DROP TABLE IF EXISTS departments;"
         CURSOR.execute(sql)
         CONN.commit()
 
     def save(self):
-        """ Insert a new row with the name and location values of the current Department instance.
-        Update object id attribute using the primary key value of new row.
-        """
         sql = """
             INSERT INTO departments (name, location)
             VALUES (?, ?)
         """
-
         CURSOR.execute(sql, (self.name, self.location))
         CONN.commit()
-
         self.id = CURSOR.lastrowid
 
     @classmethod
     def create(cls, name, location):
-        """ Initialize a new Department instance and save the object to the database """
         department = cls(name, location)
         department.save()
         return department
 
     def update(self):
-        """Update the table row corresponding to the current Department instance."""
         sql = """
             UPDATE departments
             SET name = ?, location = ?
@@ -64,11 +53,43 @@ class Department:
         CONN.commit()
 
     def delete(self):
-        """Delete the table row corresponding to the current Department instance"""
         sql = """
             DELETE FROM departments
             WHERE id = ?
         """
-
         CURSOR.execute(sql, (self.id,))
         CONN.commit()
+
+        if self.id in self.all:
+            del self.all[self.id]
+
+        self.id = None
+
+    @classmethod
+    def find_by_id(cls, id):
+        """Retrieve a Department instance by ID"""
+        sql = "SELECT * FROM departments WHERE id = ?"
+        CURSOR.execute(sql, (id,))
+        row = CURSOR.fetchone()
+        return cls.instance_from_db(row) if row else None
+
+    @classmethod
+    def find_by_name(cls, name):
+        """Retrieve a Department instance by name"""
+        sql = "SELECT * FROM departments WHERE name = ?"
+        CURSOR.execute(sql, (name,))
+        row = CURSOR.fetchone()
+        return cls.instance_from_db(row) if row else None
+
+    @classmethod
+    def get_all(cls):
+        """Retrieve all departments"""
+        sql = "SELECT * FROM departments"
+        CURSOR.execute(sql)
+        rows = CURSOR.fetchall()
+        return [cls.instance_from_db(row) for row in rows]
+
+    @classmethod
+    def instance_from_db(cls, row):
+        """Convert a DB row to a Department instance"""
+        return cls(id=row[0], name=row[1], location=row[2])
